@@ -280,7 +280,7 @@ def arab_light_view(df_al: pd.DataFrame):
                 st.metric("last actual ΔOSP", f"{a:,.3f}" if np.isfinite(a) else "NA")
                 st.metric("last predicted ΔOSP", f"{p:,.3f}" if np.isfinite(p) else "NA")
 
-        # NEW: correlation table (entire history / last 24 / last 12)
+        # correlation table
         st.markdown("#### correlations (forecast vs realized ΔOSP)")
         corr_rows = []
         if monthly2 is not None and len(monthly2) >= 3:
@@ -296,22 +296,18 @@ def arab_light_view(df_al: pd.DataFrame):
                     return np.nan, int(m.sum())
                 return float(np.corrcoef(x[m], y[m])[0, 1]), int(m.sum())
 
-            # entire
             c_all, n_all = _corr_for(base)
             corr_rows.append({"window": "entire history", "corr": c_all, "n": n_all})
 
-            # last 24 months
             tail24 = base.tail(24)
             c_24, n_24 = _corr_for(tail24)
             corr_rows.append({"window": "last 24 months", "corr": c_24, "n": n_24})
 
-            # last 12 months
             tail12 = base.tail(12)
             c_12, n_12 = _corr_for(tail12)
             corr_rows.append({"window": "last 12 months", "corr": c_12, "n": n_12})
 
             corr_df = pd.DataFrame(corr_rows)
-            # pretty formatting
             corr_df["corr"] = corr_df["corr"].map(lambda v: f"{v:.3f}" if np.isfinite(v) else "NA")
             render_dark_table(corr_df, height_px=170, index=False)
         else:
@@ -370,7 +366,7 @@ def arab_light_view(df_al: pd.DataFrame):
 
 
 # ----------------------------
-# Ridge model view (Arabmed / Arabxlt)
+# Ridge model view (Arabmed / Arabxlt / Arabhvy)
 # ----------------------------
 def ridge_view(engine, df_in: pd.DataFrame, sheet_name: str):
     df_in = normalize_cols(df_in).copy()
@@ -453,10 +449,10 @@ def ridge_view(engine, df_in: pd.DataFrame, sheet_name: str):
     last = oos_df.iloc[-1]
     forecast_month = month_label_from_latest_date(pd.to_datetime(last["Date"], errors="coerce"))
 
-    y_pred_col = "y1_pred" if "y1_pred" in oos_df.columns else "y2_pred"
-    y_true_col = "y1_true" if "y1_true" in oos_df.columns else "y2_true"
-    dy_pred_col = "y1_pred_delta" if "y1_pred_delta" in oos_df.columns else "y2_pred_delta"
-    dy_true_col = "y1_true_delta" if "y1_true_delta" in oos_df.columns else "y2_true_delta"
+    y_pred_col = "y2_pred"
+    y_true_col = "y2_true"
+    dy_pred_col = "y2_pred_delta"
+    dy_true_col = "y2_true_delta"
 
     y_pred = float(last[y_pred_col]) if np.isfinite(last[y_pred_col]) else np.nan
     y_true = float(last[y_true_col]) if np.isfinite(last[y_true_col]) else np.nan
@@ -631,7 +627,12 @@ with tab_run:
     st.sidebar.markdown("---")
     model = st.sidebar.selectbox(
         "model",
-        ["Arab light (deterministic)", "Arab med-light (ridge)", "Arab xlt-light (ridge)"],
+        [
+            "Arab light (deterministic)",
+            "Arab med-light (ridge)",
+            "Arab xlt-light (ridge)",
+            "Arab hvy-light (ridge)",
+        ],
         index=0,
     )
 
@@ -652,9 +653,16 @@ with tab_run:
         else:
             ridge_view(engine, df_am, "Arabmedlight")
 
-    else:
+    elif model == "Arab xlt-light (ridge)":
         df_ax = sheets.get("Arabxltlight")
         if df_ax is None:
             st.error("Sheet 'Arabxltlight' not found.")
         else:
             ridge_view(engine, df_ax, "Arabxltlight")
+
+    else:
+        df_ah = sheets.get("Arabhvylight")
+        if df_ah is None:
+            st.error("Sheet 'Arabhvylight' not found.")
+        else:
+            ridge_view(engine, df_ah, "Arabhvylight")
